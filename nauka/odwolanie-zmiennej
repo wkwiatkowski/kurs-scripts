@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# odwolanie zmiennej
+
+zmienna1=10
+zmienna2=2
+
+echo "pierwsza zmienna to $zmienna1" 
+echo "druga zmienna to $zmienna2"
+
+unset zmienna2
+zmienna2=4
+
+echo	# Nowy wiersz
+echo "Druga zmienna o zmienionej wartości"
+echo "pierwsza zmienna to $zmienna1"
+echo "druga zmienna to $zmienna2"
+

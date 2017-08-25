@@ -1,0 +1,104 @@
+#!/bin/bash
+
+set -x
+
+echo "kopiuje DANE"
+
+##################################################################################################
+echo "ustawiam FIREWALLA"
+cd / && tar -xvf /root/firewall.tar
+touch /lib/systemd/system/firewall.service
+
+cat << EOF > /lib/systemd/system/firewall.service
+[Unit]
+Descripton=Firewall
+After=network.target
+ConditionPathExist=/etc/firewall/firewall.sh
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/etc/firewall/firewall.sh
+ExecStop=/etc/firewall/firewall-off.sh
+User=root
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+
+systemctl enable firewall.service && systemctl start firewall.service
+
+################################################################################################
+echo "Instalacja podstawowych PAKIETOW"
+apt-get install sudo vim -y
+if `echo $?` != 0
+then	
+	break
+fi
+################################################################################################
+
+echo "ustawiam GRUPY"
+	
+cat << EOF >> /etc/group
+waldek:x:1001:
+EOF
+
+sed -i 's/sudo\:x\:27\:/sudo\:x\:27\:waldek/g'
+
+################################################################################################
+echo "ustawiam KONTA"
+
+cat << EOF >> /etc/passwd
+waldek:x:1001:1001:Waldemar Kwiatkowski:/home/waldek:/bin/bash
+EOF
+
+cat << EOF >> /etc/shadow
+waldek:$6$nXTwtCJ0$QxYNWOQemVsb1Toxg.fCIA5aOOaJd5P1WbkBi39XzeF24jdutdF4fcFJNwvHwSOCK.4ZSnx5tUO3VTJSnIk7i.:16784:0:99999:7:::
+EOF
+
+echo "Tworze kat. domowy"
+mkdir /home/waldek
+mkdir /home/waldek/.ssh
+cp /etc/skel/.* /home/waldek
+chown -R waldek:waldek /home/waldek/
+
+###################################################################################################
+echo "ustawiam ALIASY"
+
+cat << EOF > /etc/aliases
+root: waldek
+EOF
+
+newaliases
+
+##################################################################################################
+echo "ustawiam SUDO"
+
+cat << EOF >> /etc/sudoers
+Cmnd_Alias SU=/bin/su
+Cmnd_Alias TOOLS=/usr/bin/atop, /usr/bin/atopsar, /home/waldek/bin/sa.sh
+Cmnd_Alias NET=/sbin/ifconfig, /bin/ping, /usr/bin/fping
+waldek  ALL=(ALL) SU, NOPASSWD: TOOLS, NET
+EOF
+
+###################################################################################################
+echo "Modyfikacja SSH"
+
+sed -i 's/PermitRootLogin\ yes/PermitRootLogin\ no/g; s/PermitEmptyPasswords\ yes/PermitEmptyPasswords\ no/g; s/PasswordAuthentication\ yes/PasswordAuthentication\ no/g' /etc/ssh/sshd_config
+
+cat << EOF >> /etc/ssh/sshd_config
+AllowUsers waldek pkowala robertwroblewski
+EOF
+
+######################################################################################################
+echo "Ustawiam PSAD"
+
+cd / && tar -xvf /root/psad.tar
+
+touch /etc/rsyslog.d/psad.conf
+
+cat << EOF > /etc/rsyslog.d/psad.conf
+kern.info       |/var/lib/psad/psadfifo
+EOF
+
